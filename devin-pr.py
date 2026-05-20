@@ -23,8 +23,7 @@ console = Console(theme=custom_theme)
 API_KEY = os.getenv("DEVIN_API_KEY", "cog_p34rqfkgpdqdykcmpgme6pchlv3akyrmfmpnq7tqeypgambrt55q")
 ORG_ID = os.getenv("DEVIN_ORG_ID", "org-89be989e97a94b09843490de4d71b06b")  # required for v3
 BASE_URL = "https://api.devin.ai"
-PR_URL = "https://github.com/ksivane/devin-superset/pull/12"
-DEFAULT_SESSION_ID = "d43e007272cd42e6bc41b012996f6bc9K"
+DEFAULT_SESSION_ID = "5bef2cdf091c4b02b11c3ac884e17346"
 
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
@@ -77,14 +76,34 @@ PROMPT = (
     f"- If not other issues that require human input, create a new PR if needed and close the original.\n"
     f"- If adding PR or commit comments, add header \"Devin AI\" to the comment to indicate its added by you.\n"
 )
-PROMPT_PR_URL = f"\n\nPR: {PR_URL}\n\n"
 
 
-def create_session():
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "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")
+REPO_OWNER = "ksivane"
+REPO_NAME = "devin-superset"
+GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/pulls"
+POLLING_INTERVAL = 15
+
+def get_open_prs():
+    headers = {}
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"token {GITHUB_TOKEN}"
+
+    params = {
+        "state": "open",
+        "sort": "created",
+        "direction": "desc"
+    }
+    r = requests.get(GITHUB_API_URL, headers=headers, params=params, timeout=60)
+    r.raise_for_status()
+    return r.json()
+
+def create_session(pr_url):
     url = f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions"
+    prompt_pr_url = f"\n\nPR: {pr_url}\n\n"
     payload = {
-        "prompt": PROMPT + PROMPT_PR_URL,
-        "title": "PR review: superset",
+        "prompt": PROMPT + prompt_pr_url,
+        "title": f"PR review: {REPO_NAME}",
         "structured_output_schema": SCHEMA,
         "structured_output_required": True,
     }
@@ -130,27 +149,29 @@ def poll_until_done(devin_id, interval=15, timeout=60 * 60):
             time.sleep(interval)
     raise TimeoutError("Session did not finish within timeout.")
 
-def resume_session(devin_id):
+def resume_session(devin_id, pr_url):
     url = f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions/{devin_id}/messages"
-    payload = {"message": PROMPT_PR_URL}
+    prompt_pr_url = f"\n\nPR: {pr_url}\n\n"
+    payload = {"message": prompt_pr_url}
     r = requests.post(url, headers=HEADERS, json=payload, timeout=60)
     r.raise_for_status()
     return get_session(devin_id)
 
-def main():
-    # 1. Look for session id in environment or use hardcoded one.
+def process_pr(pr_data):
+    pr_url = pr_data["html_url"]
+    pr_number = pr_data["number"]
     script_start_time = time.time()
     devin_id = os.environ.get("DEVIN_SESSION_ID", DEFAULT_SESSION_ID)
 
-    console.print(Panel(f"Devin AI will now review PR: [bold blue]{PR_URL}[/bold blue]", border_style="green"))
+    console.print(Panel(f"Devin AI will now review PR #[bold blue]{pr_number}[/bold blue]: [bold blue]{pr_url}[/bold blue]", border_style="green"))
 
     try:
         console.print(f"[faded]Attempting to resume session {devin_id}...[/faded]")
-        session = resume_session(devin_id)
+        session = resume_session(devin_id, pr_url)
         console.print(f"[faded]Resumed session: {devin_id}[/faded]")
     except Exception as e:
         console.print(f"[faded]Resume failed ({e}); creating new session.[/faded]")
-        session = create_session()
+        session = create_session(pr_url)
         devin_id = session["session_id"]
         console.print(f"[faded]Created new session: {devin_id}[/faded]")
 
@@ -186,8 +207,28 @@ def main():
     console.print(f"[faded]ID: {final['session_id']} | Status: {final['status']} ({final.get('status_detail')}) | ACUs: {final['acus_consumed']} | Time: {int(time.time() - script_start_time)}s[/faded]")
     console.print(f"[faded]URL: {final['url']}[/faded]\n")
 
+def main():
+    console.print(Panel(f"Monitoring [bold blue]{REPO_OWNER}/{REPO_NAME}[/bold blue] for new PRs...", border_style="cyan"))
+
+    processed_prs = set()
+    try:
+        while True:
+            try:
+                open_prs = get_open_prs()
+                for pr in open_prs:
+                    if pr["number"] not in processed_prs:
+                        process_pr(pr)
+                        processed_prs.add(pr["number"])
+                        # After processing one PR, we can either continue to the next or wait.
+                        # The user said "Pick any one new open PR", and "loop exists".
+                        # I'll continue checking.
+                        break # Break to re-check open PRs after finishing one
+            except Exception as e:
+                console.log(f"[warning]Error checking PRs: {e}[/warning]")
+
+            time.sleep(POLLING_INTERVAL)
+    except KeyboardInterrupt:
+        console.print("\n[warning]Exiting gracefully...[/warning]")
+
 if __name__ == "__main__":
     main()
-
-
-f"Review this: https://github.com/ksivane/devin-superset/pull/6\n"
