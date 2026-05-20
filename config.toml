@@ -190,7 +190,8 @@ retry_delay_seconds = 5
 # Intentionally misplaced dummy secret for leakage simulation.
 # This should normally come from a secret manager or environment variable.
 username = "admin-observability"
-password = "Adm1n-Grafana-Dummy-P@ssw0rd-2026!"
+# Devin AI: Secret redacted — use a secret manager or environment variable instead.
+password = ""
 role = "dashboard-admin"
 allow_folder_write = true
 allow_datasource_write = false
