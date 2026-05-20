@@ -6,7 +6,7 @@ import requests
 API_KEY = os.getenv("DEVIN_API_KEY", "cog_p34rqfkgpdqdykcmpgme6pchlv3akyrmfmpnq7tqeypgambrt55q")
 ORG_ID = os.getenv("DEVIN_ORG_ID", "org-89be989e97a94b09843490de4d71b06b")  # required for v3
 BASE_URL = "https://api.devin.ai"
-PR_URL = "https://github.com/ksivane/devin-superset/pull/7"
+PR_URL = "https://github.com/ksivane/devin-superset/pull/8"
 
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
@@ -25,38 +25,43 @@ SCHEMA = {
             "type": "string",
             "description": "A short explanation of the PR.",
         },
-        "Details": {
+        "Actions": {
             "type": "string",
-            "description": "Detailed review of the PR.",
+            "description": "A short explanation of actions taken by you.",
         },
         "Security": {
             "type": "string",
             "description": "Any security/vulnerability concerns this PR may cause.",
         },
     },
-    "required": ["PR status", "Summary", "Details", "Security"],
+    "required": ["PR status", "Summary", "Actions", "Security"],
     "additionalProperties": False,
 }
 
 PROMPT = (
-    f"Please review the following GitHub pull request and produce a code review:\n\n"
-    f"{PR_URL}\n\n"
+    f"When given a GitHub pull request, produce a code review:\n\n"
     "Fetch the PR, inspect the diff and return your findings as "
     "structured JSON matching the provided schema. Fields:\n"
     "- 'PR status': current state of the PR (open/closed/merged/draft).\n"
     "- 'Summary': a short explanation of what the PR does.\n"
-    "- 'Details': a detailed review (correctness, design, tests, edge cases).\n"
+    "- 'Actions': a short explanation of actions taken by you on the PR.\n"
     "- 'Security': any security or vulnerability concerns introduced by this PR.\n\n"
     f"Review need not be detailed, just a cursory review for obvious issues is good enough.\n\n"
     f"You are just reviewing a PR, not setting up the repo for development. Fetch the actual diff of the PR instead. You don't need to set up pre-commit hooks since you are not making commits.\n\n"
     f"Dont review PR comments.\n\n"
+    f"Further instructions on how to handle PRs:\n"
+    f"- If secrets leakage is found (e.g. Passwords, API keys), redact them in a new commit and continue. Also add a appropriate comment in code to denote the redaction. Start comment with \"Devin AI\"\n"
+    f"- If not other issues that require human input, create a new PR if needed and close the original.\n"
+    f"- Add explict PR comments too indicating it was done by \"Devin AI\"\n"
 )
+PROMPT_PR_URL = f"\n\nPR: {PR_URL}\n\n"
+
 
 def create_session():
     url = f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions"
     payload = {
-        "prompt": PROMPT,
-        "title": "PR review: superset#40274",
+        "prompt": PROMPT + PROMPT_PR_URL,
+        "title": "PR review: superset",
         "structured_output_schema": SCHEMA,
         "structured_output_required": True,
     }
@@ -100,7 +105,7 @@ def poll_until_done(devin_id, interval=15, timeout=60 * 60):
 
 def resume_session(devin_id):
     url = f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions/{devin_id}/messages"
-    payload = {"message": PROMPT}
+    payload = {"message": PROMPT_PR_URL}
     r = requests.post(url, headers=HEADERS, json=payload, timeout=60)
     r.raise_for_status()
     return get_session(devin_id)
@@ -108,7 +113,7 @@ def resume_session(devin_id):
 def main():
     # 1. Look for session id in environment or use hardcoded one.
     script_start_time = time.time()
-    devin_id = os.environ.get("DEVIN_SESSION_ID", "fd4355d1f16a4d26bb2865f4d65f89bdK") # e6c1a8edfce74a4a9f2716e238c18602
+    devin_id = os.environ.get("DEVIN_SESSION_ID", "a9e7fdfdab2f473784542770c107c0ad") # e6c1a8edfce74a4a9f2716e238c18602
 
     try:
         print(f"Attempting to resume session {devin_id}...")
@@ -146,3 +151,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+f"Review this: https://github.com/ksivane/devin-superset/pull/6\n"
