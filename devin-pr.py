@@ -15,6 +15,7 @@ custom_theme = Theme({
     "warning": "magenta",
     "danger": "bold red",
     "success": "bold green",
+    "faded": "grey50",
 })
 
 console = Console(theme=custom_theme)
@@ -49,18 +50,23 @@ SCHEMA = {
             "type": "string",
             "description": "Any security/vulnerability concerns this PR may cause.",
         },
+        "NewPR": {
+            "type": "string",
+            "description": "URL of any new PR created as a result of this review or original PR",
+        }
     },
-    "required": ["PR status", "Summary", "Actions", "Security"],
+    "required": ["PR status", "Summary", "Actions", "Security", "NewPR"],
     "additionalProperties": False,
 }
 
 PROMPT = (
     f"When given a GitHub pull request, produce a code review:\n\n"
     "Fetch the PR, inspect the diff and return your findings as "
-    "structured JSON matching the provided schema. Fields:\n"
+    "structured JSON matching the provided schema. Be terse when filling the fields. Fields:\n"
     "- 'PR status': current state of the PR (open/closed/merged/draft).\n"
     "- 'Summary': a short explanation of what the PR does.\n"
     "- 'Actions': a short explanation of actions taken by you on the PR.\n"
+    "- 'NewPR': URL of any new PR created as a result of this review or original PR.\n"
     "- 'Security': any security or vulnerability concerns introduced by this PR.\n\n"
     f"Review need not be detailed, just a cursory review for obvious issues is good enough.\n\n"
     f"You are just reviewing a PR, not setting up the repo for development. Fetch the actual diff of the PR instead. You don't need to set up pre-commit hooks since you are not making commits.\n\n"
@@ -103,21 +109,21 @@ def is_terminal(status, status_detail):
 def poll_until_done(devin_id, interval=15, timeout=60 * 60):
     start = time.time()
     last = None
-    with console.status("[bold blue]Polling for completion...", spinner="dots") as status_indicator:
+    with console.status("[faded]Devin AI is working...[/faded]", spinner="dots") as status_indicator:
         while time.time() - start < timeout:
             data = get_session(devin_id)
             status = data.get("status")
             detail = data.get("status_detail")
             key = (status, detail)
             elapsed = int(time.time() - start)
-            
-            msg = f"[{elapsed:4d}s] status=[bold]{status}[/bold] detail={detail}"
+
+            msg = f"[faded][{elapsed:4d}s][/faded] status=[bold cyan]{status}[/bold cyan] detail=[bold blue]{detail}[/bold blue]"
             if key != last:
-                console.log(msg)
+                console.log(f"[faded]Devin AI is working...[/faded] {msg}")
                 last = key
-            
-            status_indicator.update(f"[bold blue]Polling... {msg}")
-            
+
+            status_indicator.update(f"[faded]Devin AI is working...[/faded] {msg}")
+
             if is_terminal(status, detail):
                 return data
             time.sleep(interval)
@@ -133,43 +139,47 @@ def resume_session(devin_id):
 def main():
     # 1. Look for session id in environment or use hardcoded one.
     script_start_time = time.time()
-    devin_id = os.environ.get("DEVIN_SESSION_ID", "a9e7fdfdab2f473784542770c107c0ad") # e6c1a8edfce74a4a9f2716e238c18602
+    devin_id = os.environ.get("DEVIN_SESSION_ID", "d43e007272cd42e6bc41b012996f6bc9")
+
+    console.print(Panel(f"Devin AI will now review PR: [bold blue]{PR_URL}[/bold blue]", border_style="green"))
 
     try:
-        console.print(f"Attempting to resume session [bold cyan]{devin_id}[/bold cyan]...")
+        console.print(f"[faded]Attempting to resume session {devin_id}...[/faded]")
         session = resume_session(devin_id)
-        console.print(f"[success]Resumed session:[/success] [bold]{devin_id}[/bold]")
+        console.print(f"[faded]Resumed session: {devin_id}[/faded]")
     except Exception as e:
-        console.print(f"[warning]Resume failed ({e}); creating new session.[/warning]")
+        console.print(f"[faded]Resume failed ({e}); creating new session.[/faded]")
         session = create_session()
         devin_id = session["session_id"]
-        console.print(f"[success]Created new session:[/success] [bold]{devin_id}[/bold]")
+        console.print(f"[faded]Created new session: {devin_id}[/faded]")
 
-    console.print(f"URL: [link={session.get('url')}]{session.get('url')}[/link]\n")
+    console.print(f"[faded]URL: {session.get('url')}[/faded]\n")
 
     final = poll_until_done(devin_id)
 
     console.print("\n[bold]=== Session Finished ===[/bold]\n")
-    
+
     structured = final.get("structured_output")
     if structured:
-        console.print(Panel(JSON.from_data(structured), title="[bold green]Structured Review[/bold green]", expand=False))
+        content = Table.grid(padding=(0, 1))
+        content.add_column(style="bold cyan", justify="right")
+        content.add_column()
+
+        content.add_row("PR Status:", structured.get("PR status"))
+        content.add_row("Summary:", structured.get("Summary"))
+        content.add_row("", "") # Spacer
+        content.add_row("Actions:", f"[bold green]{structured.get('Actions')}[/bold green]")
+        content.add_row("Security:", f"[bold red]{structured.get('Security')}[/bold red]")
+
+        console.print(Panel(content, title="[bold]Devin Here! This is what i did with the PR[/bold]", expand=False, border_style="blue"))
     else:
         console.print("[danger]No structured_output returned.[/danger]")
         console.print(f"Final status: [bold]{final.get('status')}[/bold] / [bold]{final.get('status_detail')}[/bold]")
 
-    # Session summary table
-    summary_table = Table(title="Session Summary", show_header=False, box=None)
-    summary_table.add_column("Key", style="bold cyan")
-    summary_table.add_column("Value")
-    
-    summary_table.add_row("Session ID", final['session_id'])
-    summary_table.add_row("Final Status", f"{final['status']} ({final.get('status_detail')})")
-    summary_table.add_row("ACUs Consumed", f"{final['acus_consumed']}")
-    summary_table.add_row("Elapsed Time", f"{int(time.time() - script_start_time)}s")
-    summary_table.add_row("URL", f"[link={final['url']}]{final['url']}[/link]")
-
-    console.print(Panel(summary_table, border_style="bold blue"))
+    # Session summary - less prominent
+    console.print("\n[faded]Technical Session Summary:[/faded]")
+    console.print(f"[faded]ID: {final['session_id']} | Status: {final['status']} ({final.get('status_detail')}) | ACUs: {final['acus_consumed']} | Time: {int(time.time() - script_start_time)}s[/faded]")
+    console.print(f"[faded]URL: {final['url']}[/faded]\n")
 
 if __name__ == "__main__":
     main()
