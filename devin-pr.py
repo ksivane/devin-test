@@ -78,7 +78,7 @@ PROMPT = (
 )
 
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "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")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 REPO_OWNER = "ksivane"
 REPO_NAME = "devin-superset"
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/pulls"
@@ -179,7 +179,7 @@ def process_pr(pr_data):
 
     final = poll_until_done(devin_id)
 
-    console.print("\n[bold]=== Session Finished ===[/bold]\n")
+    console.print("\n[bold]========================================================[/bold]\n")
 
     structured = final.get("structured_output")
     if structured:
@@ -218,11 +218,7 @@ def main():
                 for pr in open_prs:
                     if pr["number"] not in processed_prs:
                         process_pr(pr)
-                        processed_prs.add(pr["number"])
-                        # After processing one PR, we can either continue to the next or wait.
-                        # The user said "Pick any one new open PR", and "loop exists".
-                        # I'll continue checking.
-                        break # Break to re-check open PRs after finishing one
+                        return # Exit script after processing one PR
             except Exception as e:
                 console.log(f"[warning]Error checking PRs: {e}[/warning]")
 
