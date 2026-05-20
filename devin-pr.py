@@ -6,7 +6,7 @@ import requests
 API_KEY = os.getenv("DEVIN_API_KEY", "cog_p34rqfkgpdqdykcmpgme6pchlv3akyrmfmpnq7tqeypgambrt55q")
 ORG_ID = os.getenv("DEVIN_ORG_ID", "org-89be989e97a94b09843490de4d71b06b")  # required for v3
 BASE_URL = "https://api.devin.ai"
-PR_URL = "https://github.com/apache/superset/pull/40274"
+PR_URL = "https://github.com/ksivane/devin-superset/pull/1"
 
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
@@ -41,13 +41,15 @@ SCHEMA = {
 PROMPT = (
     f"Please review the following GitHub pull request and produce a code review:\n\n"
     f"{PR_URL}\n\n"
-    "Fetch the PR, inspect the diff and discussion, and return your findings as "
+    "Fetch the PR, inspect the diff and return your findings as "
     "structured JSON matching the provided schema. Fields:\n"
     "- 'PR status': current state of the PR (open/closed/merged/draft).\n"
     "- 'Summary': a short explanation of what the PR does.\n"
     "- 'Details': a detailed review (correctness, design, tests, edge cases).\n"
-    "- 'Security': any security or vulnerability concerns introduced by this PR."
+    "- 'Security': any security or vulnerability concerns introduced by this PR.\n\n"
     f"Review need not be detailed, just a cursory review for obvious issues is good enough.\n\n"
+    f"You are just reviewing a PR, not setting up the repo for development. Fetch the actual diff of the PR instead. You don't need to set up pre-commit hooks since you are not making commits.\n\n"
+    f"Dont review PR comments.\n\n"
 )
 
 def create_session():
@@ -100,6 +102,7 @@ def main():
     print("Creating Devin session (v3)...")
     created = create_session()
     devin_id = created["session_id"]
+    start_ts = created["created_at"]
     print(f"Session created: {devin_id}")
     print(f"URL: {created.get('url')}\n")
 
@@ -114,6 +117,14 @@ def main():
     else:
         print("No structured_output returned.")
         print(f"Final status: {final.get('status')} / {final.get('status_detail')}")
+
+    # Session summary matching devin-session.py
+    print("\n--- Session summary ---")
+    print(f"Session ID:    {final['session_id']}")
+    print(f"Final status:  {final['status']} ({final.get('status_detail')})")
+    print(f"ACUs consumed: {final['acus_consumed']}")
+    print(f"Elapsed:       {final['updated_at'] - start_ts}s")
+    print(f"URL:           {final['url']}")
 
 if __name__ == "__main__":
     main()
