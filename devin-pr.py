@@ -47,6 +47,7 @@ PROMPT = (
     "- 'Summary': a short explanation of what the PR does.\n"
     "- 'Details': a detailed review (correctness, design, tests, edge cases).\n"
     "- 'Security': any security or vulnerability concerns introduced by this PR."
+    f"Review need not be detailed, just a cursory review for obvious issues is good enough.\n\n"
 )
 
 def create_session():
@@ -70,11 +71,9 @@ def get_session(devin_id):
 def is_terminal(status, status_detail):
     # v3: status 'exit' or 'error' are terminal. 'suspended' is also effectively done
     # (often with reasons like 'finished' / 'inactivity' / 'usage_limit_exceeded').
-    if status in {"exit", "error"}:
+    if status in {"exit", "error", "suspended"}:
         return True
-    if status == "suspended":
-        return True
-    if status == "running" and status_detail == "finished":
+    if status_detail in {"finished", "waiting_for_user"}:
         return True
     return False
 
