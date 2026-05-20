@@ -23,7 +23,8 @@ console = Console(theme=custom_theme)
 API_KEY = os.getenv("DEVIN_API_KEY", "cog_p34rqfkgpdqdykcmpgme6pchlv3akyrmfmpnq7tqeypgambrt55q")
 ORG_ID = os.getenv("DEVIN_ORG_ID", "org-89be989e97a94b09843490de4d71b06b")  # required for v3
 BASE_URL = "https://api.devin.ai"
-PR_URL = "https://github.com/ksivane/devin-superset/pull/8"
+PR_URL = "https://github.com/ksivane/devin-superset/pull/12"
+DEFAULT_SESSION_ID = "d43e007272cd42e6bc41b012996f6bc9K"
 
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
@@ -62,7 +63,7 @@ SCHEMA = {
 PROMPT = (
     f"When given a GitHub pull request, produce a code review:\n\n"
     "Fetch the PR, inspect the diff and return your findings as "
-    "structured JSON matching the provided schema. Be terse when filling the fields. Fields:\n"
+    "structured JSON matching the provided schema. Be terse (1 line per field) when filling the fields. Fields:\n"
     "- 'PR status': current state of the PR (open/closed/merged/draft).\n"
     "- 'Summary': a short explanation of what the PR does.\n"
     "- 'Actions': a short explanation of actions taken by you on the PR.\n"
@@ -74,7 +75,7 @@ PROMPT = (
     f"Further instructions on how to handle PRs:\n"
     f"- If secrets leakage is found (e.g. Passwords, API keys), redact them in a new commit and continue. Also add a appropriate comment in code to denote the redaction. Start comment with \"Devin AI\"\n"
     f"- If not other issues that require human input, create a new PR if needed and close the original.\n"
-    f"- Add explict PR comments too indicating it was done by \"Devin AI\"\n"
+    f"- If adding PR or commit comments, add header \"Devin AI\" to the comment to indicate its added by you.\n"
 )
 PROMPT_PR_URL = f"\n\nPR: {PR_URL}\n\n"
 
@@ -119,10 +120,10 @@ def poll_until_done(devin_id, interval=15, timeout=60 * 60):
 
             msg = f"[faded][{elapsed:4d}s][/faded] status=[bold cyan]{status}[/bold cyan] detail=[bold blue]{detail}[/bold blue]"
             if key != last:
-                console.log(f"[faded]Devin AI is working...[/faded] {msg}")
+                console.log(f"[bold blue]Devin AI is working...[/bold blue] {msg}")
                 last = key
 
-            status_indicator.update(f"[faded]Devin AI is working...[/faded] {msg}")
+            status_indicator.update(f"[bold blue]Devin AI is working...[/bold blue] {msg}")
 
             if is_terminal(status, detail):
                 return data
@@ -139,7 +140,7 @@ def resume_session(devin_id):
 def main():
     # 1. Look for session id in environment or use hardcoded one.
     script_start_time = time.time()
-    devin_id = os.environ.get("DEVIN_SESSION_ID", "d43e007272cd42e6bc41b012996f6bc9")
+    devin_id = os.environ.get("DEVIN_SESSION_ID", DEFAULT_SESSION_ID)
 
     console.print(Panel(f"Devin AI will now review PR: [bold blue]{PR_URL}[/bold blue]", border_style="green"))
 
@@ -170,6 +171,10 @@ def main():
         content.add_row("", "") # Spacer
         content.add_row("Actions:", f"[bold green]{structured.get('Actions')}[/bold green]")
         content.add_row("Security:", f"[bold red]{structured.get('Security')}[/bold red]")
+
+        new_pr = structured.get("NewPR")
+        if new_pr and new_pr.strip():
+            content.add_row("New PR:", f"[bold blue][link={new_pr}]{new_pr}[/link][/bold blue]")
 
         console.print(Panel(content, title="[bold]Devin Here! This is what i did with the PR[/bold]", expand=False, border_style="blue"))
     else:
