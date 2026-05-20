@@ -12,6 +12,7 @@ headers = {
 }
 
 # 1. Look for session id in environment or use hardcoded one.
+script_start_time = time.time()
 devin_id = os.environ.get("DEVIN_SESSION_ID", "e6c1a8edfce74a4a9f2716e238c18602")
 # fd4355d1f16a4d26bb2865f4d65f89bd
 prompt = "What is Devin AI?"
@@ -84,5 +85,5 @@ print("\n--- Session summary ---")
 print(f"Session ID:    {s['session_id']}")
 print(f"Final status:  {s['status']} ({s.get('status_detail')})")
 print(f"ACUs consumed: {s['acus_consumed']}")          # Devin's usage metric
-print(f"Elapsed:       {s['updated_at'] - start_ts}s")
+print(f"Elapsed:       {int(time.time() - script_start_time)}s")
 print(f"URL:           {s['url']}")

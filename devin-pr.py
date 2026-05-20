@@ -6,7 +6,7 @@ import requests
 API_KEY = os.getenv("DEVIN_API_KEY", "cog_p34rqfkgpdqdykcmpgme6pchlv3akyrmfmpnq7tqeypgambrt55q")
 ORG_ID = os.getenv("DEVIN_ORG_ID", "org-89be989e97a94b09843490de4d71b06b")  # required for v3
 BASE_URL = "https://api.devin.ai"
-PR_URL = "https://github.com/ksivane/devin-superset/pull/1"
+PR_URL = "https://github.com/ksivane/devin-superset/pull/7"
 
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
@@ -98,19 +98,37 @@ def poll_until_done(devin_id, interval=15, timeout=60 * 60):
         time.sleep(interval)
     raise TimeoutError("Session did not finish within timeout.")
 
+def resume_session(devin_id):
+    url = f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions/{devin_id}/messages"
+    payload = {"message": PROMPT}
+    r = requests.post(url, headers=HEADERS, json=payload, timeout=60)
+    r.raise_for_status()
+    return get_session(devin_id)
+
 def main():
-    print("Creating Devin session (v3)...")
-    created = create_session()
-    devin_id = created["session_id"]
-    start_ts = created["created_at"]
-    print(f"Session created: {devin_id}")
-    print(f"URL: {created.get('url')}\n")
+    # 1. Look for session id in environment or use hardcoded one.
+    script_start_time = time.time()
+    devin_id = os.environ.get("DEVIN_SESSION_ID", "fd4355d1f16a4d26bb2865f4d65f89bdK") # e6c1a8edfce74a4a9f2716e238c18602
+
+    try:
+        print(f"Attempting to resume session {devin_id}...")
+        session = resume_session(devin_id)
+        print(f"Resumed: {devin_id}")
+    except Exception as e:
+        print(f"Resume failed ({e}); creating new session.")
+        session = create_session()
+        devin_id = session["session_id"]
+        print(f"Created: {devin_id}")
+
+    start_ts = session["created_at"]
+    print(f"URL: {session.get('url')}\n")
 
     print("Polling for completion...")
     final = poll_until_done(devin_id)
 
     print("\n=== Session finished ===")
     structured = final.get("structured_output")
+    print(final)
     if structured:
         print("\nStructured review:\n")
         print(json.dumps(structured, indent=2))
@@ -123,7 +141,7 @@ def main():
     print(f"Session ID:    {final['session_id']}")
     print(f"Final status:  {final['status']} ({final.get('status_detail')})")
     print(f"ACUs consumed: {final['acus_consumed']}")
-    print(f"Elapsed:       {final['updated_at'] - start_ts}s")
+    print(f"Elapsed:       {int(time.time() - script_start_time)}s")
     print(f"URL:           {final['url']}")
 
 if __name__ == "__main__":
