@@ -2,6 +2,22 @@ import os
 import time
 import json
 import requests
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.live import Live
+from rich.status import Status
+from rich.json import JSON
+from rich.theme import Theme
+
+custom_theme = Theme({
+    "info": "dim cyan",
+    "warning": "magenta",
+    "danger": "bold red",
+    "success": "bold green",
+})
+
+console = Console(theme=custom_theme)
 
 API_KEY = os.getenv("DEVIN_API_KEY", "cog_p34rqfkgpdqdykcmpgme6pchlv3akyrmfmpnq7tqeypgambrt55q")
 ORG_ID = os.getenv("DEVIN_ORG_ID", "org-89be989e97a94b09843490de4d71b06b")  # required for v3
@@ -87,20 +103,24 @@ def is_terminal(status, status_detail):
 def poll_until_done(devin_id, interval=15, timeout=60 * 60):
     start = time.time()
     last = None
-    while time.time() - start < timeout:
-        data = get_session(devin_id)
-        status = data.get("status")
-        detail = data.get("status_detail")
-        key = (status, detail)
-        elapsed = int(time.time() - start)
-        if key != last:
-            print(f"[{elapsed:4d}s] status={status} detail={detail}")
-            last = key
-        else:
-            print(f"[{elapsed:4d}s] still status={status} detail={detail}...")
-        if is_terminal(status, detail):
-            return data
-        time.sleep(interval)
+    with console.status("[bold blue]Polling for completion...", spinner="dots") as status_indicator:
+        while time.time() - start < timeout:
+            data = get_session(devin_id)
+            status = data.get("status")
+            detail = data.get("status_detail")
+            key = (status, detail)
+            elapsed = int(time.time() - start)
+            
+            msg = f"[{elapsed:4d}s] status=[bold]{status}[/bold] detail={detail}"
+            if key != last:
+                console.log(msg)
+                last = key
+            
+            status_indicator.update(f"[bold blue]Polling... {msg}")
+            
+            if is_terminal(status, detail):
+                return data
+            time.sleep(interval)
     raise TimeoutError("Session did not finish within timeout.")
 
 def resume_session(devin_id):
@@ -116,38 +136,40 @@ def main():
     devin_id = os.environ.get("DEVIN_SESSION_ID", "a9e7fdfdab2f473784542770c107c0ad") # e6c1a8edfce74a4a9f2716e238c18602
 
     try:
-        print(f"Attempting to resume session {devin_id}...")
+        console.print(f"Attempting to resume session [bold cyan]{devin_id}[/bold cyan]...")
         session = resume_session(devin_id)
-        print(f"Resumed: {devin_id}")
+        console.print(f"[success]Resumed session:[/success] [bold]{devin_id}[/bold]")
     except Exception as e:
-        print(f"Resume failed ({e}); creating new session.")
+        console.print(f"[warning]Resume failed ({e}); creating new session.[/warning]")
         session = create_session()
         devin_id = session["session_id"]
-        print(f"Created: {devin_id}")
+        console.print(f"[success]Created new session:[/success] [bold]{devin_id}[/bold]")
 
-    start_ts = session["created_at"]
-    print(f"URL: {session.get('url')}\n")
+    console.print(f"URL: [link={session.get('url')}]{session.get('url')}[/link]\n")
 
-    print("Polling for completion...")
     final = poll_until_done(devin_id)
 
-    print("\n=== Session finished ===")
+    console.print("\n[bold]=== Session Finished ===[/bold]\n")
+    
     structured = final.get("structured_output")
-    print(final)
     if structured:
-        print("\nStructured review:\n")
-        print(json.dumps(structured, indent=2))
+        console.print(Panel(JSON.from_data(structured), title="[bold green]Structured Review[/bold green]", expand=False))
     else:
-        print("No structured_output returned.")
-        print(f"Final status: {final.get('status')} / {final.get('status_detail')}")
+        console.print("[danger]No structured_output returned.[/danger]")
+        console.print(f"Final status: [bold]{final.get('status')}[/bold] / [bold]{final.get('status_detail')}[/bold]")
 
-    # Session summary matching devin-session.py
-    print("\n--- Session summary ---")
-    print(f"Session ID:    {final['session_id']}")
-    print(f"Final status:  {final['status']} ({final.get('status_detail')})")
-    print(f"ACUs consumed: {final['acus_consumed']}")
-    print(f"Elapsed:       {int(time.time() - script_start_time)}s")
-    print(f"URL:           {final['url']}")
+    # Session summary table
+    summary_table = Table(title="Session Summary", show_header=False, box=None)
+    summary_table.add_column("Key", style="bold cyan")
+    summary_table.add_column("Value")
+    
+    summary_table.add_row("Session ID", final['session_id'])
+    summary_table.add_row("Final Status", f"{final['status']} ({final.get('status_detail')})")
+    summary_table.add_row("ACUs Consumed", f"{final['acus_consumed']}")
+    summary_table.add_row("Elapsed Time", f"{int(time.time() - script_start_time)}s")
+    summary_table.add_row("URL", f"[link={final['url']}]{final['url']}[/link]")
+
+    console.print(Panel(summary_table, border_style="bold blue"))
 
 if __name__ == "__main__":
     main()
