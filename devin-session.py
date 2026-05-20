@@ -11,16 +11,41 @@ headers = {
     "Content-Type": "application/json",
 }
 
-# 1. Create a new session. The `prompt` field doubles as the first message.
-create_resp = requests.post(
-    f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions",
-    headers=headers,
-    json={"prompt": "What is Devin AI?"},
-)
-create_resp.raise_for_status()
-session = create_resp.json()
-devin_id = session["session_id"]            # e.g. "devin-abc123"
-print(f"Session created: {devin_id}")
+# 1. Look for session id in environment or use hardcoded one.
+devin_id = os.environ.get("DEVIN_SESSION_ID", "e6c1a8edfce74a4a9f2716e238c18602")
+# fd4355d1f16a4d26bb2865f4d65f89bd
+prompt = "What is Devin AI?"
+
+try:
+    # Try to resume the session by sending a message.
+    resp = requests.post(
+        f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions/{devin_id}/messages",
+        headers=headers,
+        json={"message": prompt},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    # Get session details to populate start_ts and other info.
+    session_resp = requests.get(
+        f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions/{devin_id}",
+        headers=headers,
+    )
+    session_resp.raise_for_status()
+    session = session_resp.json()
+    print(f"Resumed: {devin_id}")
+except Exception as e:
+    print(f"Resume failed ({e}); creating new session.")
+    create_resp = requests.post(
+        f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions",
+        headers=headers,
+        json={"prompt": prompt},
+        timeout=30,
+    )
+    create_resp.raise_for_status()
+    session = create_resp.json()
+    devin_id = session["session_id"]
+    print(f"Created: {devin_id}")
+
 print(f"URL:   {session['url']}")
 print(f"Status: {session['status']}")
 start_ts = session["created_at"]
