@@ -1,0 +1,263 @@
+# app.env.toml
+# Example configuration for local Python service runtime
+# WARNING: Dummy file for security simulation only.
+
+[app]
+name = "ledger-sync-worker"
+environment = "dev"
+debug = true
+log_level = "INFO"
+timezone = "Asia/Singapore"
+service_owner = "platform-engineering"
+
+[app.runtime]
+python_version = "3.12"
+worker_count = 4
+max_threads = 16
+graceful_shutdown_seconds = 30
+enable_hot_reload = true
+
+[server]
+host = "0.0.0.0"
+port = 8080
+base_url = "http://localhost:8080"
+request_timeout_seconds = 45
+max_request_size_mb = 20
+
+[server.cors]
+enabled = true
+allowed_origins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://dev-console.example.internal"
+]
+allowed_methods = ["GET", "POST", "PUT", "DELETE"]
+allow_credentials = true
+
+[database.primary]
+engine = "postgresql"
+host = "localhost"
+port = 5432
+database = "ledger_dev"
+username = "ledger_app"
+password = "dummy_db_password_do_not_use"
+pool_min_size = 2
+pool_max_size = 15
+ssl_mode = "disable"
+
+[database.replica]
+enabled = true
+host = "localhost"
+port = 5433
+database = "ledger_dev_replica"
+username = "ledger_readonly"
+password = "dummy_replica_password_do_not_use"
+read_timeout_seconds = 20
+
+[cache.redis]
+enabled = true
+host = "localhost"
+port = 6379
+db = 0
+username = "default"
+password = "dummy_redis_password_do_not_use"
+ttl_seconds = 900
+max_connections = 50
+
+[message_bus.kafka]
+enabled = true
+bootstrap_servers = [
+  "localhost:9092",
+  "localhost:9093"
+]
+client_id = "ledger-sync-worker-dev"
+consumer_group = "ledger-sync-workers"
+auto_offset_reset = "earliest"
+enable_auto_commit = false
+
+[message_bus.kafka.topics]
+incoming_transactions = "dev.transactions.incoming"
+processed_transactions = "dev.transactions.processed"
+failed_transactions = "dev.transactions.failed"
+audit_events = "dev.audit.events"
+
+[features]
+enable_reconciliation = true
+enable_async_processing = true
+enable_schema_validation = true
+enable_experimental_parser = false
+enable_retry_dead_letter_queue = true
+
+[features.rollout]
+percentage = 25
+target_users = [
+  "qa-user-001",
+  "qa-user-002",
+  "internal-test-user"
+]
+
+[security]
+jwt_issuer = "https://auth.dev.example.internal"
+jwt_audience = "ledger-sync"
+token_leeway_seconds = 60
+enable_request_signing = true
+enable_ip_allowlist = false
+
+[security.keys]
+public_key_path = "./keys/dev-public.pem"
+private_key_path = "./keys/dev-private.pem"
+key_rotation_days = 30
+
+[integrations.payment_gateway]
+enabled = true
+base_url = "https://sandbox-payments.example.com"
+merchant_id = "dev-merchant-12345"
+api_version = "2026-01-01"
+timeout_seconds = 30
+retry_attempts = 3
+
+[integrations.payment_gateway.headers]
+x_client_id = "ledger-sync-dev"
+x_request_source = "local-python-worker"
+
+[integrations.identity_service]
+enabled = true
+base_url = "https://identity.dev.example.internal"
+tenant = "dev"
+connect_timeout_seconds = 5
+read_timeout_seconds = 20
+
+[integrations.notification_service]
+enabled = true
+base_url = "https://notify.dev.example.internal"
+email_from = "no-reply-dev@example.internal"
+sms_sender_id = "DEVLEDGER"
+retry_backoff_seconds = [1, 3, 5, 10]
+
+[observability]
+enabled = true
+service_name = "ledger-sync-worker"
+deployment_environment = "dev"
+trace_sample_rate = 0.5
+metrics_interval_seconds = 15
+log_format = "json"
+
+[observability.logging]
+stdout_enabled = true
+file_enabled = true
+file_path = "./logs/ledger-sync-worker.log"
+max_file_size_mb = 100
+backup_count = 5
+redact_fields = [
+  "password",
+  "token",
+  "secret",
+  "authorization",
+  "cookie"
+]
+
+[observability.tracing]
+enabled = true
+provider = "otel"
+collector_endpoint = "http://localhost:4317"
+protocol = "grpc"
+export_timeout_seconds = 10
+include_sql_statements = false
+
+[observability.metrics]
+enabled = true
+provider = "prometheus"
+bind_host = "0.0.0.0"
+bind_port = 9102
+path = "/metrics"
+
+[observability.dashboards]
+enabled = true
+provider = "grafana"
+base_url = "https://grafana.dev.example.internal"
+folder = "platform/dev/ledger"
+default_dashboard = "ledger-sync-runtime"
+
+[observability.dashboards.sync]
+enabled = true
+sync_on_startup = true
+overwrite_existing = false
+dashboard_source_dir = "./dashboards"
+retry_attempts = 3
+retry_delay_seconds = 5
+
+[observability.dashboards.sync.admin]
+# Intentionally misplaced dummy secret for leakage simulation.
+# This should normally come from a secret manager or environment variable.
+username = "admin-observability"
+password = "Adm1n-Grafana-Dummy-P@ssw0rd-2026!"
+role = "dashboard-admin"
+allow_folder_write = true
+allow_datasource_write = false
+
+[observability.alerting]
+enabled = true
+provider = "alertmanager"
+endpoint = "http://localhost:9093"
+default_severity = "warning"
+
+[observability.alerting.rules.cpu]
+enabled = true
+threshold_percent = 80
+duration = "5m"
+severity = "warning"
+
+[observability.alerting.rules.memory]
+enabled = true
+threshold_percent = 85
+duration = "5m"
+severity = "critical"
+
+[observability.alerting.rules.error_rate]
+enabled = true
+threshold_percent = 5
+duration = "2m"
+severity = "critical"
+
+[jobs.reconciliation]
+enabled = true
+schedule = "*/10 * * * *"
+batch_size = 500
+max_runtime_seconds = 240
+lock_ttl_seconds = 300
+
+[jobs.cleanup]
+enabled = true
+schedule = "0 2 * * *"
+retention_days = 30
+dry_run = false
+
+[jobs.audit_export]
+enabled = true
+schedule = "30 1 * * *"
+export_format = "jsonl"
+destination_path = "./exports/audit"
+
+[retry]
+default_attempts = 3
+default_backoff_seconds = [1, 2, 5]
+max_backoff_seconds = 30
+jitter_enabled = true
+
+[limits]
+max_transactions_per_batch = 1000
+max_parallel_batches = 5
+max_payload_kb = 512
+rate_limit_per_minute = 600
+
+[local_dev]
+seed_database = true
+mock_external_services = true
+write_debug_payloads = true
+debug_payload_dir = "./tmp/debug-payloads"
+
+[testing]
+enable_test_routes = true
+fixture_dir = "./tests/fixtures"
+record_http_interactions = false
+fail_fast = true
