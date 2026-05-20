@@ -23,7 +23,7 @@ console = Console(theme=custom_theme)
 API_KEY = os.getenv("DEVIN_API_KEY", "cog_p34rqfkgpdqdykcmpgme6pchlv3akyrmfmpnq7tqeypgambrt55q")
 ORG_ID = os.getenv("DEVIN_ORG_ID", "org-89be989e97a94b09843490de4d71b06b")  # required for v3
 BASE_URL = "https://api.devin.ai"
-DEFAULT_SESSION_ID = "5bef2cdf091c4b02b11c3ac884e17346"
+DEFAULT_SESSION_ID = "511913a6e7d24716b00eb3e867eb5117"
 
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
@@ -73,8 +73,8 @@ PROMPT = (
     f"Dont review PR comments.\n\n"
     f"Further instructions on how to handle PRs:\n"
     f"- If secrets leakage is found (e.g. Passwords, API keys), redact them in a new commit and continue. Also add a appropriate comment in code to denote the redaction. Start comment with \"Devin AI\"\n"
-    f"- If not other issues that require human input, create a new PR if needed and close the original.\n"
-    f"- If adding PR or commit comments, add header \"Devin AI\" to the comment to indicate its added by you.\n"
+    f"- If no other issues that require human input, create a new PR if needed, close the original PR if needed and merge the new one to main.\n"
+    f"- If adding PR or commit comments, always start your comment with \"Devin AI\" to indicate it was added by you.\n"
 )
 
 
