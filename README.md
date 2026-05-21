@@ -7,7 +7,7 @@
 [Loom video](https://www.loom.com/share/f60de63084794a3b80ccd80b92c8b332)
 
 ### superset repo copy
-[devin-superset](https://github.com/ksivane/devin-superset)
+[devin-superset](https://github.com/ksivane/devin-superset/tree/devin/1779280717-clean-config-updates)
 
 
 ## Assignment
