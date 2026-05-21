@@ -1,3 +1,12 @@
+"""
+Devin PR Reviewer
+-----------------
+This script automates the process of reviewing GitHub Pull Requests using Devin AI.
+It monitors a specified repository for new open PRs, triggers a Devin session to
+perform a code review based on a structured prompt and schema, and displays the
+results (summary, actions, security findings) in a formatted console output.
+"""
+
 import os
 import time
 import json
@@ -20,8 +29,8 @@ custom_theme = Theme({
 
 console = Console(theme=custom_theme)
 
-API_KEY = os.getenv("DEVIN_API_KEY", "cog_p34rqfkgpdqdykcmpgme6pchlv3akyrmfmpnq7tqeypgambrt55q")
-ORG_ID = os.getenv("DEVIN_ORG_ID", "org-89be989e97a94b09843490de4d71b06b")  # required for v3
+API_KEY = os.getenv("DEVIN_API_KEY", "cog_p34rqfkgpdqdykcmpgme6pchlv3akyrmfmpnq7tqeypgambrt55q")  # Valid for couple of days
+ORG_ID = os.getenv("DEVIN_ORG_ID", "org-89be989e97a94b09843490de4d71b06b")  # required for v3, Valid for couple of days
 BASE_URL = "https://api.devin.ai"
 DEFAULT_SESSION_ID = "511913a6e7d24716b00eb3e867eb5117"
 
@@ -99,6 +108,10 @@ def get_open_prs():
     return r.json()
 
 def create_session(pr_url):
+    """
+    Creates a new Devin session for reviewing a specific PR.
+    Initializes the session with a detailed prompt and a structured output schema.
+    """
     url = f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions"
     prompt_pr_url = f"\n\nPR: {pr_url}\n\n"
     payload = {
@@ -112,12 +125,20 @@ def create_session(pr_url):
     return r.json()
 
 def get_session(devin_id):
+    """
+    Retrieves the current status and metadata of a Devin session.
+    Used for monitoring progress and getting final results.
+    """
     url = f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions/{devin_id}"
     r = requests.get(url, headers=HEADERS, timeout=60)
     r.raise_for_status()
     return r.json()
 
 def is_terminal(status, status_detail):
+    """
+    Determines if a Devin session has reached a final state.
+    'exit', 'error', and 'suspended' are considered terminal in v3.
+    """
     # v3: status 'exit' or 'error' are terminal. 'suspended' is also effectively done
     # (often with reasons like 'finished' / 'inactivity' / 'usage_limit_exceeded').
     if status in {"exit", "error", "suspended"}:
@@ -127,6 +148,10 @@ def is_terminal(status, status_detail):
     return False
 
 def poll_until_done(devin_id, interval=15, timeout=60 * 60):
+    """
+    Polls the Devin API periodically until the session is terminal or times out.
+    Updates the console UI with real-time status changes.
+    """
     start = time.time()
     last = None
     with console.status("[faded]Devin AI is working...[/faded]", spinner="dots") as status_indicator:
@@ -150,6 +175,10 @@ def poll_until_done(devin_id, interval=15, timeout=60 * 60):
     raise TimeoutError("Session did not finish within timeout.")
 
 def resume_session(devin_id, pr_url):
+    """
+    Resumes an existing Devin session by sending a new message.
+    Useful for re-using sessions or continuing a conversation.
+    """
     url = f"{BASE_URL}/v3/organizations/{ORG_ID}/sessions/{devin_id}/messages"
     prompt_pr_url = f"\n\nPR: {pr_url}\n\n"
     payload = {"message": prompt_pr_url}
@@ -158,6 +187,10 @@ def resume_session(devin_id, pr_url):
     return get_session(devin_id)
 
 def process_pr(pr_data):
+    """
+    Main orchestration logic for reviewing a single PR.
+    Handles session lifecycle (resume vs. create) and processes Devin's response.
+    """
     pr_url = pr_data["html_url"]
     pr_number = pr_data["number"]
     script_start_time = time.time()
@@ -166,10 +199,12 @@ def process_pr(pr_data):
     console.print(Panel(f"Devin AI will now review PR #[bold blue]{pr_number}[/bold blue]: [bold blue]{pr_url}[/bold blue]", border_style="green"))
 
     try:
+        # Try to resume an existing session if configured
         console.print(f"[faded]Attempting to resume session {devin_id}...[/faded]")
         session = resume_session(devin_id, pr_url)
         console.print(f"[faded]Resumed session: {devin_id}[/faded]")
     except Exception as e:
+        # Fallback to creating a new session if resume fails
         console.print(f"[faded]Resume failed ({e}); creating new session.[/faded]")
         session = create_session(pr_url)
         devin_id = session["session_id"]
@@ -177,10 +212,12 @@ def process_pr(pr_data):
 
     console.print(f"[faded]URL: {session.get('url')}[/faded]\n")
 
+    # Wait for Devin to finish processing
     final = poll_until_done(devin_id)
 
     console.print("\n[bold]========================================================[/bold]\n")
 
+    # Extract and display the structured output from Devin
     structured = final.get("structured_output")
     if structured:
         content = Table.grid(padding=(0, 1))
@@ -199,6 +236,7 @@ def process_pr(pr_data):
 
         console.print(Panel(content, title="[bold]Devin Here! This is what i did with the PR[/bold]", expand=False, border_style="blue"))
     else:
+        # Handle cases where structured output is missing
         console.print("[danger]No structured_output returned.[/danger]")
         console.print(f"Final status: [bold]{final.get('status')}[/bold] / [bold]{final.get('status_detail')}[/bold]")
 
