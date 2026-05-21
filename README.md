@@ -28,3 +28,6 @@ They are currently reviewing their enterprise cybersecurity controls due to rece
 - **Configuration**: One-time configuration of `app.devin.ai` (org\_id, api\_key, and secret store).
 - **Processing**: One PR is processed per run in this demo.
 - **Security**: All tokens and API keys used for this demo are ephemeral.
+
+![Screenshot](./devin-Screenshot 2026-05-21 135240.png)
+
