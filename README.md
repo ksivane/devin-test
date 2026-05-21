@@ -11,7 +11,6 @@ This demo automates secrets remediation and leakage using Devin AI. It monitors 
 **Target Audience**: VP of Engineering and technical SMEs curious about Devin.
 [Loom video](https://www.loom.com/share/f60de63084794a3b80ccd80b92c8b332)
 
-They are currently reviewing their enterprise cybersecurity controls due to recent incidents and would like to know what Devin can do for them.
 
 ## Instructions to Run Demo
 1.  **Start Docker container**: `docker run ksivane/devin-test-kp:0.2`. Ensure it starts successfully without errors.
@@ -28,3 +27,4 @@ They are currently reviewing their enterprise cybersecurity controls due to rece
 - **Configuration**: One-time configuration of `app.devin.ai` (org\_id, api\_key, and secret store).
 - **Processing**: One PR is processed per run in this demo.
 - **Security**: All tokens and API keys used for this demo are ephemeral.
+- **Audience**: Currently reviewing their enterprise cybersecurity controls due to recent incidents and would like to know what Devin can do for them.
