@@ -1,15 +1,21 @@
 # Devin - Take Home Assignment
 **Kailash P. Sivanesan**
 
+## Deliverables
+### Video to VP of Engineering and technical SMEs curious about Devin.
+
+[Loom video](https://www.loom.com/share/f60de63084794a3b80ccd80b92c8b332)
+
+### superset repo copy
+[devin-superset](https://github.com/ksivane/devin-superset)
+
+
 ## Assignment
 You will build an event-driven automation using the Devin API that solves a concrete engineering workflow problem. You should present your solution as if pitching Devin to a VP of Engineering, alongside senior engineers who will evaluate your technical depth.
 
 ## Demo: Devin Secrets Remediator & PR Reviewer
 This demo automates secrets remediation and leakage using Devin AI. It monitors a specified repository for PRs and triggers a Devin session. Devin takes autonomous actions to remediate any secrets leakage findings, performs a code review based on a structured prompt and schema, and displays the results (summary, actions, security findings) for auditability and observability.
 
-## Video
-**Target Audience**: VP of Engineering and technical SMEs curious about Devin.
-[Loom video](https://www.loom.com/share/f60de63084794a3b80ccd80b92c8b332)
 
 ## Instructions to Run Demo
 1.  **Start Docker container**: `docker run ksivane/devin-test-kp:0.2`. Ensure it starts successfully without errors.
@@ -29,4 +35,8 @@ This demo automates secrets remediation and leakage using Devin AI. It monitors 
 - **Security**: All tokens and API keys used for this demo are ephemeral.
 - **Audience**: Currently reviewing their enterprise cybersecurity controls due to recent incidents and would like to know what Devin can do for them.
 
+## Repo copy with Devin remediations
+[devin-superset](https://github.com/ksivane/devin-superset)
+
 ![Screenshot](./devin-Screenshot%202026-05-21%20135240.png)
+
