@@ -19,7 +19,7 @@ This demo automates secrets remediation and leakage using Devin AI. It monitors 
 4.  **Wait for processing**: The container should catch the new PR within 15 seconds and kick off Devin security remediation by connecting to app.Devin.ai.
 5.  **Wait for results**: Depending on resource availability, Devin can take upto 3 mins to finish. You will see useful summary, info and technical summary at the end.
 
-## Assumptions/Decisions
+## Design choices
 - **Session Management**: Uses the programmatic API to create, resume, and manage Devin sessions.
 - **Session Continuity**: Existing sessions are resumed if possible; otherwise, a new session is created.
 - **API Choice**: Uses the sessions API directly instead of "Devin Review".
